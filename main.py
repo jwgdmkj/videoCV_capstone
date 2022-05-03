@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 
-filepath = 'data/test.mp4'
+filepath = 'C:/Users/is7se/Desktop/코드용/videoCV\data_2/test.mp4'
 video= cv2.VideoCapture(filepath)
 
 if not video.isOpened():
@@ -16,6 +16,7 @@ length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fps = video.get(cv2.CAP_PROP_FPS)
+alllength = length//fps # 총 길이
 
 print("length :", length)
 print("width :", width)
@@ -38,17 +39,19 @@ heightidx, widthidx = height//6, width//3 # 기준이 되는 지점
 second = 0
 
 prevscreen, nowscreen = [], []
-
+'''
 while(video.isOpened()):
     ret, image = video.read()
+    if image is None:
+        break
     #fig, arr = plt.subplots(1, 2, figsize = (15,15))
     #arr[0].imshow(image)
     # 앞서 불러온 fps 값을 사용하여 1초마다 추출
     if(int(video.get(1)) % 60 == 0):
         # ----- CNN마냥 필터를 돌아다니며 추출 -----
-        while heightidx + height//20 < (2 * height) // 3:
+        while heightidx + height//10 < (2 * height) // 3:
             lstfornowscreen = []
-            while widthidx + width//32 < (width * 2) // 3:
+            while widthidx + width//16 < (width * 2) // 3:
                 # 일정 부분을 잘라냄.
                 curaverage = image[heightidx : heightidx+(height//10),\
                          widthidx : widthidx+ (width//16),:].copy()
@@ -58,22 +61,23 @@ while(video.isOpened()):
                         sumnp += curaverage[i][j]
                 sumnp /= len(curaverage) * len(curaverage[0]) # 특정 커널의 평균
                 lstfornowscreen.append(sumnp)
-                widthidx += (int)(width//32) # widthidx 옮기기
+                widthidx += (int)(width//16) # widthidx 옮기기
 
             nowscreen.append(lstfornowscreen)
-            heightidx += (int)(height//20) #heightidx 옮기기
+            heightidx += (int)(height//10) #heightidx 옮기기
             widthidx = 0
         # ----- 필터 돌아다니며 추출하기 끝 -----
 
         # ----- 이전 프레임(prevscreen)과 비교하면서, 차이를 비교 -----
-        '''
-        국소적 부위에 눈에 띌만한 차이가 있고, 그것이 여러 곳에서 관측된다면 하이라이트?
-        단, 모든 부위에 변화가 관찰된다면 이는 배경이 바뀐 것일 가능성이 큼.
-        따라서 몇 개의 범위가 바껴야 하이라이트로 간주할지, 얼마나 바껴야 할지 임계점은?
-        '''
-        print(second)
-        print(nowscreen)
-        print('-------')
+        if len(prevscreen) > 0:
+            pass
+        #국소적 부위에 눈에 띌만한 차이가 있고, 그것이 여러 곳에서 관측된다면 하이라이트?
+        #단, 모든 부위에 변화가 관찰된다면 이는 배경이 바뀐 것일 가능성이 큼.
+        #따라서 몇 개의 범위가 바껴야 하이라이트로 간주할지, 얼마나 바껴야 할지 임계점은?
+
+        #print(second)
+        #print(nowscreen)
+        #print('-------')
         # ----- 차이 비교 끝, now와 prev 갱신 필요 -----
         prevscreen = nowscreen.copy()
         nowscreen = []
@@ -85,7 +89,7 @@ while(video.isOpened()):
     #break
     #plt.show()
 video.release()
-
+'''
 '''
 1. 이미지의 RGB 색상 분포도를 plot형식으로 만든다.
 이 plot과, 다음 프레임의 plot을 분석해, 유의미한 차이가 있으면 하이라이트. 
@@ -110,7 +114,6 @@ video.release()
 
 while(video.isOpened()):
     ret, image = video.read()
-    #print(image[500][900])
     #fig, arr = plt.subplots(1, 2, figsize = (15,15))
     #arr[0].imshow(image)
     # 앞서 불러온 fps 값을 사용하여 3초마다 추출
@@ -147,17 +150,140 @@ while(video.isOpened()):
 '''
 
 
-'''
-#cv2.imwrite(filepath[:-4] + "/frame%d.jpg" % count, image)
-        #pil_image=Image.fromarray(image)
-        planes = cv2.split(image)
-        colors = ['b', 'g','r']
+lstH = []
+second = 0
+while(video.isOpened()):
+    ret, image = video.read()
+    if image is None:
+        break
 
-        fig, arr = plt.subplots(1, 2, figsize = (15,15))
-        arr[0].imshow(image)
-        for (plane, c) in zip(planes, colors):
-            hist = cv2.calcHist([plane], [0], None, [256], [0, 256])
-            plt.plot(hist, color=c)
-        #plt.show()
-        #print('Saved frame number :', str(int(video.get(1))))
-'''
+    # 앞서 불러온 fps 값을 사용하여 0.5초마다 추출
+    if(int(video.get(1)) % 30 == 0):
+        print(second, end = ' ')
+        averH = 0 # 합산시킬 H
+        for i in range(height//6, (height*4)//6):
+        #for i in range(height):
+            tmparr = []
+            #for j in range(width):
+            for j in range(width//3, (width*2)//3):
+                newR, newG, newB = (image[i][j][0]/255),(image[i][j][1]/255),(image[i][j][2]/255)
+                Min = min(newR, newG, newB)
+                Max = max(newR, newG, newB)
+                del_max = Max - Min
+                H = 0
+
+                #H값 추출
+                if(del_max == 0):
+                    H = 0
+                else:
+                    if newR == Max:
+                        H = ((((Max - newB)/6) + del_max/2)) / ((((Max - newG)/6)+(del_max/2))/del_max)
+                    elif newG == Max:
+                        H = (1/3)+((((Max-newR)/6)+(del_max/2)) / del_max) - ((((Max - newB)/6)+(del_max/2))/del_max)
+                    elif newB == Max:
+                        H = (2/3)+((((Max-newG)/6)+(del_max/2)) / del_max) - ((((Max - newR)/6)+(del_max/2))/del_max)
+                    if H<0:
+                        H += 1
+                    if H>1:
+                        H -= 1
+                tmparr.append((H, 0, 1))
+                averH += H
+            prevscreen.append(tmparr)
+        #print(averH)
+        averH /= (width * height) # 한 프레임의 H값 평균
+        lstH.append(averH) # 이걸 리스트에 넣기
+
+        second += 1
+    #if second == 80:
+    #    break
+video.release()
+
+std = np.std(lstH) # 표준편차
+for idx, val in enumerate(lstH):
+   print(idx, val)
+
+# 표준편차를 기준으로 탐색할 범위 지정
+# 평균값 +- 표준편차
+avgCntStart = (sum(lstH) / len(lstH)) - std
+avgCntEnd = (sum(lstH) / len(lstH)) + std
+acceptFrameList = []
+print(std, avgCntStart, avgCntEnd)
+
+# 탐색범위 내의 프레임만 필터링
+for i in range(len(lstH)):
+    if (lstH[i] < avgCntStart and lstH[i] > avgCntStart - std) \
+        or (lstH[i] > avgCntEnd and lstH[i] < avgCntEnd + std) :
+            acceptFrameList.append(i)
+print(acceptFrameList)
+
+highlightArr = []
+startidx, endidx = 0, 0
+# 보정 과정, 2.5초 지속되는 경우 하이라이트로 지정
+frameidx = 0
+consec = 0
+for i in range(len(acceptFrameList)-1):
+   if acceptFrameList[i+1] == acceptFrameList[i]+1:
+       # 만약 연속이 시작될 경우(그전까지 0이었다면)
+       if consec == 0:
+           startidx = acceptFrameList[i] # 시작 idx 설정
+       consec += 1 # 연속 = 1 증가
+
+       if i == len(acceptFrameList)-2 and consec >= 3 and acceptFrameList[i]+1 == acceptFrameList[i+1]:
+            endidx = acceptFrameList[i]+1
+            highlightArr.append((startidx, endidx))
+            consec, startidx, endidx = 0, 0, 0
+   else :
+       if consec >= 3: # 4번 이상 충분히 유지되었다면, endidx를 설정
+           endidx = acceptFrameList[i]
+           highlightArr.append((startidx, endidx))
+       consec, startidx, endidx = 0, 0, 0
+
+print(highlightArr)
+# 각 구간 별 차이가 5초 이하라면, 연결
+for i in range(len(highlightArr)-1):
+    if highlightArr[i+1][0] - highlightArr[i][1] < 4:
+        newhighlight = (highlightArr[i][0], highlightArr[i+1][1])
+        del highlightArr[i+1], highlightArr[i]
+        highlightArr.append(newhighlight)
+print(highlightArr)
+
+# # 수집한 하이라이트 구간을 원본영상에서 자름
+# video.set(cv2.CV_CAP_POS_FRAMES, acceptFrameList[0])
+#
+# parts = [(15, 30), (50, 79)]
+# cap = cv2.VideoCapture(filepath)
+# ret, frame = cap.read()
+# h, w, _ = frame.shape
+#
+# # Define a fourcc (four-character code), and define a list of video writers;
+# # 3rd 파라미터: fps, 4th 파라미터: frame Size
+# fourcc = cv2.VideoWriter_fourcc(*"XVID")
+# writers = [cv2.VideoWriter(f"part{start}-{end}.avi", fourcc, 20.0, (w, h)) \
+#            for start, end in parts]
+#
+# # Define a while loop, but before that, define a variable to
+# # keep track of which frame the while loop is at in the capture device:
+# f = 0
+# while ret: # ret == False시, 중지
+#     f += 1 # f == frame
+#
+#     # Using a for loop inside the while loop,
+#     # loop through the start and end frames of the parts,
+#     # using the enumerate method to allow the program
+#     # to access the index of the parts each iteration is at when needed.
+#     # If the variable defined before the while loop is between (inclusive)
+#     # the start and end of the part, write that frame to the
+#     # corresponding video writer (using the index provided
+#     # by the enumerate method):
+#     for i, part in enumerate(parts):
+#         start, end = part
+#         if start <= f <= end:
+#             writers[i].write(frame)
+#     ret, frame = cap.read()
+#
+# for writer in writers:
+#     writer.release()
+#
+# cap.release()
+#
+# # 자른 영상을 영상리스트(txt)를 기준으로 자르기
