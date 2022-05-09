@@ -4,7 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 
-filepath = 'C:/Users/is7se/Desktop/코드용/videoCV\data_2/test.mp4'
+filepath = 'C:/Users/is7se/Desktop/코드용/videoCV/data_2/test.mp4'
+filepath2 = './'
 video= cv2.VideoCapture(filepath)
 
 if not video.isOpened():
@@ -149,9 +150,14 @@ while(video.isOpened()):
 
 '''
 
+print(widthidx, width//12, width*2//3)
+print(heightidx, height//10, 2*height//3)
+heightcnt = (int)(((2*height//3) - heightidx) / (height//10))
+widthcnt = (int)(((2*width//3) - widthidx) / (width//12))
 
+# (640, 800, 960, 1120) - width / (180, 288, 396, 504, 612) - height
 lstH = []
-second = 0
+
 while(video.isOpened()):
     ret, image = video.read()
     if image is None:
@@ -161,61 +167,102 @@ while(video.isOpened()):
     if(int(video.get(1)) % 30 == 0):
         print(second, end = ' ')
         averH = 0 # 합산시킬 H
-        for i in range(height//6, (height*4)//6):
-        #for i in range(height):
-            tmparr = []
-            #for j in range(width):
-            for j in range(width//3, (width*2)//3):
-                newR, newG, newB = (image[i][j][0]/255),(image[i][j][1]/255),(image[i][j][2]/255)
-                Min = min(newR, newG, newB)
-                Max = max(newR, newG, newB)
-                del_max = Max - Min
-                H = 0
 
-                #H값 추출
-                if(del_max == 0):
-                    H = 0
-                else:
-                    if newR == Max:
-                        H = ((((Max - newB)/6) + del_max/2)) / ((((Max - newG)/6)+(del_max/2))/del_max)
-                    elif newG == Max:
-                        H = (1/3)+((((Max-newR)/6)+(del_max/2)) / del_max) - ((((Max - newB)/6)+(del_max/2))/del_max)
-                    elif newB == Max:
-                        H = (2/3)+((((Max-newG)/6)+(del_max/2)) / del_max) - ((((Max - newR)/6)+(del_max/2))/del_max)
-                    if H<0:
-                        H += 1
-                    if H>1:
-                        H -= 1
-                tmparr.append((H, 0, 1))
-                averH += H
-            prevscreen.append(tmparr)
-        #print(averH)
-        averH /= (width * height) # 한 프레임의 H값 평균
-        lstH.append(averH) # 이걸 리스트에 넣기
+        lstfornowscreen = [] #같은 프레임 내의 이미지
+        while heightidx + height//10 <= (2 * height) // 3:
+            while widthidx + width//12 <= (width * 2) // 3:
+                # 일정 부분을 잘라냄.
+                curaverage = image[heightidx : heightidx+(height//10),\
+                         widthidx : widthidx+ (width//12),:].copy()
+                averH = 0
+                
+                for i in range(len(curaverage)):
+                    for j in range(len(curaverage[0])):
+                        newR, newG, newB = (curaverage[i][j][0]/255),\
+                                           (curaverage[i][j][1]/255),\
+                                           (curaverage[i][j][2]/255)
+                        Min = min(newR, newG, newB)
+                        Max = max(newR, newG, newB)
+                        del_max = Max - Min
+                        H = 0
 
+                        #H값 추출
+                        if(del_max == 0):
+                            H = 0
+                        else:
+                            if newR == Max:
+                                H = ((((Max - newB)/6) + del_max/2)) / \
+                                    ((((Max - newG)/6)+(del_max/2))/del_max)
+                            elif newG == Max:
+                                H = (1/3)+((((Max-newR)/6)+(del_max/2)) / del_max) \
+                                    - ((((Max - newB)/6)+(del_max/2))/del_max)
+                            elif newB == Max:
+                                H = (2/3)+((((Max-newG)/6)+(del_max/2)) / del_max) - \
+                                    ((((Max - newR)/6)+(del_max/2))/del_max)
+                            if H<0:
+                                H += 1
+                            if H>1:
+                                H -= 1
+
+                        averH += H
+                #print('widthidx', end = ' ')
+                #print(widthidx)
+                averH /= len(curaverage) * len(curaverage[0]) # 특정 커널의 평균
+                lstfornowscreen.append(averH)
+                widthidx += (int)(width//12) # widthidx 옮기기
+                # --------- 가로 한 줄 끝 --------------#
+            # ---------세로로 하나 내리기 ------------#
+            #print('height', end= ' ')
+            #print(heightidx)
+            heightidx += (int)(height//10) #heightidx 옮기기
+            widthidx = width//3
+            # ------------한 화면 끝 --------------#
+        lstH.append(lstfornowscreen)
+        heightidx = height//6 # 기준이 되는 지점
         second += 1
-    #if second == 80:
-    #    break
-video.release()
+        # ---------- 다음 초로 넘어가기 ----------#
+        #if second == 240:
+        #    break
 
-std = np.std(lstH) # 표준편차
-for idx, val in enumerate(lstH):
-   print(idx, val)
+video.release()
+print(lstH)
+stdList = (np.std(lstH, axis = 0))
+print(stdList)
 
 # 표준편차를 기준으로 탐색할 범위 지정
 # 평균값 +- 표준편차
-avgCntStart = (sum(lstH) / len(lstH)) - std
-avgCntEnd = (sum(lstH) / len(lstH)) + std
-acceptFrameList = []
-print(std, avgCntStart, avgCntEnd)
+avgCntStart, avgCntEnd = [], []
+for i in range(len(stdList)): # 총 격자 개수
+    tmp = 0
+    for j in range(len(lstH)): # 총 날짜 개수
+        tmp += lstH[j][i]
+    avgCntStart.append((tmp / second) - stdList[i])
+    avgCntEnd.append((tmp / second) + stdList[i])
 
+print(avgCntStart)
+print(avgCntEnd)
+'''
+탐색범위를 돌며, 영역 중 떨어지는 애를 구한다. 한 프레임 내에 10~50% 정도가 떨어지는 애들이면, 개 선택
+'''
+
+acceptFrameList = []
 # 탐색범위 내의 프레임만 필터링
-for i in range(len(lstH)):
-    if (lstH[i] < avgCntStart and lstH[i] > avgCntStart - std) \
-        or (lstH[i] > avgCntEnd and lstH[i] < avgCntEnd + std) :
-            acceptFrameList.append(i)
+
+for i in range(len(lstH)): # 총 날짜 개수
+    tmparr=[]
+    for j in range(len(lstH[i])): # 총 격자 개수
+        if (lstH[i][j] < avgCntStart[j] and lstH[i][j] > avgCntStart[j] - stdList[j]) \
+        or (lstH[i][j] > avgCntEnd[j] and lstH[i][j] < avgCntEnd[j] + stdList[j]) :
+            tmparr.append(j)
+
+    # 편차가 있는 곳이 1 이상 1/2 미만인 경우
+    if len(tmparr) > (heightcnt * widthcnt) // 3 \
+            and len(tmparr) < (heightcnt * widthcnt) // 2:
+        acceptFrameList.append(i/2)
+
 print(acceptFrameList)
 
+'''
 highlightArr = []
 startidx, endidx = 0, 0
 # 보정 과정, 2.5초 지속되는 경우 하이라이트로 지정
@@ -246,7 +293,7 @@ for i in range(len(highlightArr)-1):
         del highlightArr[i+1], highlightArr[i]
         highlightArr.append(newhighlight)
 print(highlightArr)
-
+'''
 # # 수집한 하이라이트 구간을 원본영상에서 자름
 # video.set(cv2.CV_CAP_POS_FRAMES, acceptFrameList[0])
 #
@@ -287,3 +334,39 @@ print(highlightArr)
 # cap.release()
 #
 # # 자른 영상을 영상리스트(txt)를 기준으로 자르기
+
+
+'''
+        for i in range(height//6, (height*4)//6):
+            tmparr = []
+            for j in range(width//3, (width*2)//3):
+                newR, newG, newB = (image[i][j][0]/255),(image[i][j][1]/255),(image[i][j][2]/255)
+                Min = min(newR, newG, newB)
+                Max = max(newR, newG, newB)
+                del_max = Max - Min
+                H = 0
+
+                #H값 추출
+                if(del_max == 0):
+                    H = 0
+                else:
+                    if newR == Max:
+                        H = ((((Max - newB)/6) + del_max/2)) / ((((Max - newG)/6)+(del_max/2))/del_max)
+                    elif newG == Max:
+                        H = (1/3)+((((Max-newR)/6)+(del_max/2)) / del_max) - ((((Max - newB)/6)+(del_max/2))/del_max)
+                    elif newB == Max:
+                        H = (2/3)+((((Max-newG)/6)+(del_max/2)) / del_max) - ((((Max - newR)/6)+(del_max/2))/del_max)
+                    if H<0:
+                        H += 1
+                    if H>1:
+                        H -= 1
+                tmparr.append((H, 0, 1))
+                averH += H
+            prevscreen.append(tmparr)
+        averH /= (width * height) # 한 프레임의 H값 평균
+        lstH.append(averH) # 이걸 리스트에 넣기
+
+        second += 1
+    #if second == 80:
+    #    break
+'''
